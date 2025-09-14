@@ -6,6 +6,20 @@
   <title>4-Point Pendulum</title>
 </head>
 <body>
+<style>
+  body, html {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    width: 100%;
+    height: 100%;
+  }
+  #c {
+    display: block;
+    margin: 0;
+    padding: 0;
+  }
+</style>
 <canvas id="c"></canvas>
 
 <script>
@@ -151,32 +165,96 @@ function maintainLengths(){
 }
 
 // drawing
+let electricTrails = [];
 function draw(){
-  ctx.clearRect(0,0,w,h);
+  // Dark electric background
+  ctx.fillStyle = 'rgba(5, 5, 15, 0.1)';
+  ctx.fillRect(0, 0, w, h);
+  
   ctx.save();
-  ctx.lineWidth = 2;
-  ctx.strokeStyle = '#000';
-  ctx.fillStyle = '#000';
-  // draw rods
-  ctx.beginPath();
+  
+  // Electric rods with lightning bolts
   for(let i=0;i<particles.length-1;i++){
     const a = particles[i];
     const b = particles[i+1];
+    
+    // Main electric beam
+    ctx.strokeStyle = '#00FFFF';
+    ctx.lineWidth = 3;
+    ctx.shadowColor = '#00FFFF';
+    ctx.shadowBlur = 15;
+    
+    // Jagged lightning path
+    ctx.beginPath();
     ctx.moveTo(a.x, a.y);
+    
+    const steps = 8;
+    for(let j = 1; j < steps; j++){
+      const t = j / steps;
+      const x = a.x + (b.x - a.x) * t + (Math.random() - 0.5) * 20;
+      const y = a.y + (b.y - a.y) * t + (Math.random() - 0.5) * 20;
+      ctx.lineTo(x, y);
+    }
     ctx.lineTo(b.x, b.y);
+    ctx.stroke();
+    
+    // Random electric arcs
+    if(Math.random() < 0.1){
+      electricTrails.push({
+        x1: a.x + (Math.random() - 0.5) * 40,
+        y1: a.y + (Math.random() - 0.5) * 40,
+        x2: b.x + (Math.random() - 0.5) * 40,
+        y2: b.y + (Math.random() - 0.5) * 40,
+        life: 1
+      });
+    }
   }
-  ctx.stroke();
+  
+  // Draw and fade electric trails
+  electricTrails = electricTrails.filter(trail => {
+    trail.life -= 0.1;
+    if(trail.life > 0){
+      ctx.strokeStyle = `rgba(0, 255, 255, ${trail.life})`;
+      ctx.lineWidth = 1;
+      ctx.shadowBlur = 10;
+      
+      ctx.beginPath();
+      ctx.moveTo(trail.x1, trail.y1);
+      ctx.lineTo(trail.x2, trail.y2);
+      ctx.stroke();
+      return true;
+    }
+    return false;
+  });
 
-  // draw masses
+  // Electric orbs
   for(let i=0;i<particles.length;i++){
     const p = particles[i];
+    
+    // Electric glow
+    const gradient = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, MASS_RADIUS * 3);
+    gradient.addColorStop(0, '#FFFFFF');
+    gradient.addColorStop(0.3, '#00FFFF');
+    gradient.addColorStop(1, 'rgba(0, 255, 255, 0)');
+    
+    ctx.fillStyle = gradient;
     ctx.beginPath();
-    ctx.arc(p.x, p.y, MASS_RADIUS, 0, Math.PI*2);
+    ctx.arc(p.x, p.y, MASS_RADIUS * 3, 0, Math.PI*2);
+    ctx.fill();
+    
+    // Core orb
+    ctx.fillStyle = '#FFFFFF';
+    ctx.shadowColor = '#00FFFF';
+    ctx.shadowBlur = 20;
+    
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, MASS_RADIUS * 0.7, 0, Math.PI*2);
     ctx.fill();
   }
 
   ctx.restore();
 }
+
 
 // main loop with fixed timestep accumulator
 let acc = 0;
