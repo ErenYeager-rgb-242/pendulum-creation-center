@@ -6,6 +6,20 @@
   <title>4-Point Pendulum</title>
 </head>
 <body>
+<style>
+  body, html {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    width: 100%;
+    height: 100%;
+  }
+  #c {
+    display: block;
+    margin: 0;
+    padding: 0;
+  }
+</style>
 <canvas id="c"></canvas>
 
 <script>
@@ -152,12 +166,37 @@ function maintainLengths(){
 
 // drawing
 function draw(){
-  ctx.clearRect(0,0,w,h);
+  ctx.clearRect(0, 0, w, h);
   ctx.save();
-  ctx.lineWidth = 2;
-  ctx.strokeStyle = '#000';
+  
+  // Calculate total energy
+  let kineticEnergy = 0;
+  let potentialEnergy = 0;
+  
+  for(let i=0;i<particles.length;i++){
+    const p = particles[i];
+    if(!p.pinned){
+      // Kinetic energy = 0.5 * m * v^2 (assuming mass = 1)
+      const vx = (p.x - p.px) / TIMESTEP;
+      const vy = (p.y - p.py) / TIMESTEP;
+      kineticEnergy += 0.5 * (vx*vx + vy*vy);
+      
+      // Potential energy = m * g * h (relative to bottom)
+      potentialEnergy += (h - p.y) * GRAVITY / 1000;
+    }
+  }
+  
+  // Energy display
   ctx.fillStyle = '#000';
-  // draw rods
+  ctx.font = '16px monospace';
+  ctx.fillText(`Kinetic Energy: ${kineticEnergy.toFixed(2)}`, 10, 30);
+  ctx.fillText(`Potential Energy: ${potentialEnergy.toFixed(2)}`, 10, 50);
+  ctx.fillText(`Total Energy: ${(kineticEnergy + potentialEnergy).toFixed(2)}`, 10, 70);
+
+  // Draw pendulum rods
+  ctx.strokeStyle = '#333';
+  ctx.lineWidth = 3;
+  
   ctx.beginPath();
   for(let i=0;i<particles.length-1;i++){
     const a = particles[i];
@@ -167,12 +206,48 @@ function draw(){
   }
   ctx.stroke();
 
-  // draw masses
+  // Draw masses with velocity vectors
   for(let i=0;i<particles.length;i++){
     const p = particles[i];
+    
+    // Mass
+    ctx.fillStyle = '#666';
     ctx.beginPath();
     ctx.arc(p.x, p.y, MASS_RADIUS, 0, Math.PI*2);
     ctx.fill();
+    
+    if(!p.pinned){
+      // Velocity vector
+      const vx = (p.x - p.px) * 5; // scale for visibility
+      const vy = (p.y - p.py) * 5;
+      
+      ctx.strokeStyle = '#FF0000';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(p.x, p.y);
+      ctx.lineTo(p.x + vx, p.y + vy);
+      ctx.stroke();
+      
+      // Arrow head
+      const angle = Math.atan2(vy, vx);
+      const headlen = 8;
+      ctx.beginPath();
+      ctx.moveTo(p.x + vx, p.y + vy);
+      ctx.lineTo(p.x + vx - headlen * Math.cos(angle - Math.PI/6), 
+                 p.y + vy - headlen * Math.sin(angle - Math.PI/6));
+      ctx.moveTo(p.x + vx, p.y + vy);
+      ctx.lineTo(p.x + vx - headlen * Math.cos(angle + Math.PI/6),
+                 p.y + vy - headlen * Math.sin(angle + Math.PI/6));
+      ctx.stroke();
+      
+      // Speed indicator (color of mass based on speed)
+      const speed = Math.hypot(vx, vy);
+      const speedColor = `hsl(${Math.min(speed * 2, 360)}, 70%, 50%)`;
+      ctx.fillStyle = speedColor;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, MASS_RADIUS * 0.7, 0, Math.PI*2);
+      ctx.fill();
+    }
   }
 
   ctx.restore();
