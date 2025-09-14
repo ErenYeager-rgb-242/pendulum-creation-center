@@ -6,6 +6,20 @@
   <title>4-Point Pendulum</title>
 </head>
 <body>
+<style>
+  body, html {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    width: 100%;
+    height: 100%;
+  }
+  #c {
+    display: block;
+    margin: 0;
+    padding: 0;
+  }
+</style>
 <canvas id="c"></canvas>
 
 <script>
@@ -151,29 +165,419 @@ function maintainLengths(){
 }
 
 // drawing
+let codeLines = [];
+let bugs = [];
+let commits = [];
+let buildStatus = {
+  status: 'SUCCESS',
+  tests: { passed: 0, failed: 0, total: 0 },
+  coverage: 85.7,
+  linesOfCode: 1247,
+  cyclomatic: 3.2,
+  buildTime: 0,
+  deployments: 12,
+  uptime: 99.8
+};
+
 function draw(){
-  ctx.clearRect(0,0,w,h);
+  const time = Date.now() * 0.001;
+  
+  // Clean minimalist background
+  ctx.fillStyle = 'rgba(248, 250, 252, 0.03)';
+  ctx.fillRect(0, 0, w, h);
+  
+  // Subtle grid lines
+  ctx.strokeStyle = 'rgba(148, 163, 184, 0.08)';
+  ctx.lineWidth = 0.5;
+  for(let x = 0; x < w; x += 100){
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, h);
+    ctx.stroke();
+  }
+  for(let y = 0; y < h; y += 100){
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(w, y);
+    ctx.stroke();
+  }
+  
+  // Update build metrics dynamically
+  buildStatus.buildTime += 0.016;
+  
+  // Code complexity based on pendulum motion
+  let totalMotion = 0;
+  for(let i = 0; i < particles.length; i++){
+    const p = particles[i];
+    const motion = Math.hypot(p.x - p.px, p.y - p.py);
+    totalMotion += motion;
+  }
+  
+  buildStatus.cyclomatic = Math.max(1.0, 2.0 + totalMotion * 0.1);
+  buildStatus.coverage = Math.max(60, 95 - totalMotion * 0.5);
+  buildStatus.linesOfCode = 1247 + Math.floor(totalMotion * 2);
+  
+  buildStatus.tests.total = 47 + Math.floor(Math.sin(time * 0.5) * 2);
+  buildStatus.tests.passed = Math.max(35, buildStatus.tests.total - Math.floor(totalMotion * 0.2));
+  buildStatus.tests.failed = buildStatus.tests.total - buildStatus.tests.passed;
+  
+  if(buildStatus.tests.failed > 5 || buildStatus.coverage < 70){
+    buildStatus.status = 'FAILED';
+  } else if(buildStatus.tests.failed > 2 || buildStatus.coverage < 80){
+    buildStatus.status = 'WARNING';
+  } else {
+    buildStatus.status = 'SUCCESS';
+  }
+  
   ctx.save();
-  ctx.lineWidth = 2;
-  ctx.strokeStyle = '#000';
-  ctx.fillStyle = '#000';
-  // draw rods
-  ctx.beginPath();
-  for(let i=0;i<particles.length-1;i++){
+  
+  // Clean code streams
+  if(Math.random() < 0.2){
+    const cleanCode = [
+      'interface UserData {',
+      '  id: string;',
+      '  name: string;',
+      '  email: string;',
+      '}',
+      'const fetchUser = async (id: string) => {',
+      '  const response = await api.get(`/users/${id}`);',
+      '  return response.data;',
+      '};',
+      'export default function App() {',
+      '  return <div>Hello World</div>;',
+      '}',
+      'npm run test --coverage',
+      'git commit -m "refactor: improve types"',
+      'yarn build --production'
+    ];
+    
+    codeLines.push({
+      x: 50 + Math.random() * (w - 300),
+      y: -20,
+      vy: 0.5 + Math.random() * 0.5,
+      text: cleanCode[Math.floor(Math.random() * cleanCode.length)],
+      life: 1,
+      color: Math.random() > 0.7 ? '#dc2626' : Math.random() > 0.4 ? '#2563eb' : '#059669'
+    });
+  }
+  
+  // Minimal code rendering
+  ctx.font = '12px "SF Mono", "Monaco", "Inconsolata", monospace';
+  codeLines = codeLines.filter(line => {
+    line.y += line.vy;
+    line.life -= 0.004;
+    
+    if(line.y < h + 30 && line.life > 0){
+      ctx.fillStyle = `${line.color}${Math.floor(line.life * 120).toString(16).padStart(2, '0')}`;
+      ctx.textAlign = 'left';
+      ctx.fillText(line.text, line.x, line.y);
+      return true;
+    }
+    return false;
+  });
+  
+  // Minimal bug system
+  if(Math.random() < 0.01){
+    bugs.push({
+      x: Math.random() * w,
+      y: Math.random() * h,
+      vx: (Math.random() - 0.5) * 2,
+      vy: (Math.random() - 0.5) * 2,
+      life: 1,
+      type: ['TypeError', 'ReferenceError', 'SyntaxError', 'RangeError'][Math.floor(Math.random() * 4)],
+      size: 4 + Math.random() * 3
+    });
+  }
+  
+  // Clean bug rendering
+  bugs = bugs.filter(bug => {
+    bug.x += bug.vx;
+    bug.y += bug.vy;
+    bug.life -= 0.005;
+    
+    if(bug.x < 0 || bug.x > w) bug.vx *= -1;
+    if(bug.y < 0 || bug.y > h) bug.vy *= -1;
+    
+    if(bug.life > 0){
+      // Simple circle
+      ctx.fillStyle = `rgba(239, 68, 68, ${bug.life * 0.8})`;
+      ctx.beginPath();
+      ctx.arc(bug.x, bug.y, bug.size, 0, Math.PI*2);
+      ctx.fill();
+      
+      // Clean label
+      ctx.fillStyle = `rgba(127, 29, 29, ${bug.life})`;
+      ctx.font = '10px "SF Mono", monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(bug.type, bug.x, bug.y - bug.size - 5);
+      
+      return true;
+    }
+    return false;
+  });
+
+  // Clean pendulum connections
+  for(let i = 0; i < particles.length - 1; i++){
     const a = particles[i];
-    const b = particles[i+1];
+    const b = particles[i + 1];
+    
+    // Simple gradient lines
+    const gradient = ctx.createLinearGradient(a.x, a.y, b.x, b.y);
+    gradient.addColorStop(0, 'rgba(59, 130, 246, 0.6)');
+    gradient.addColorStop(1, 'rgba(147, 51, 234, 0.6)');
+    
+    ctx.strokeStyle = gradient;
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    
+    ctx.beginPath();
     ctx.moveTo(a.x, a.y);
     ctx.lineTo(b.x, b.y);
+    ctx.stroke();
+    
+    // Clean API indicators
+    const midX = (a.x + b.x) / 2;
+    const midY = (a.y + b.y) / 2;
+    
+    const methods = ['GET', 'POST', 'PUT', 'DELETE'];
+    const method = methods[i % methods.length];
+    
+    // Simple badge
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+    ctx.fillRect(midX - 15, midY - 8, 30, 16);
+    ctx.strokeStyle = 'rgba(100, 116, 139, 0.3)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(midX - 15, midY - 8, 30, 16);
+    
+    ctx.fillStyle = '#475569';
+    ctx.font = '10px "SF Mono", monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(method, midX, midY + 2);
   }
-  ctx.stroke();
 
-  // draw masses
-  for(let i=0;i<particles.length;i++){
-    const p = particles[i];
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, MASS_RADIUS, 0, Math.PI*2);
-    ctx.fill();
+  // Clean commit system
+  if(Math.random() < 0.03){
+    const commitMessages = [
+      'feat: add authentication',
+      'fix: resolve memory leak',
+      'docs: update README',
+      'refactor: optimize queries',
+      'test: add unit tests',
+      'chore: update deps'
+    ];
+    
+    commits.push({
+      x: particles[0] ? particles[0].x : w/2,
+      y: particles[0] ? particles[0].y : h/2,
+      message: commitMessages[Math.floor(Math.random() * commitMessages.length)],
+      life: 1,
+      radius: 6
+    });
   }
+  
+  // Clean commit visualization
+  commits = commits.filter(commit => {
+    commit.radius += 0.8;
+    commit.life -= 0.012;
+    
+    if(commit.life > 0){
+      // Simple expanding circle
+      ctx.strokeStyle = `rgba(34, 197, 94, ${commit.life})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(commit.x, commit.y, commit.radius, 0, Math.PI*2);
+      ctx.stroke();
+      
+      // Clean message
+      ctx.fillStyle = `rgba(21, 158, 61, ${commit.life})`;
+      ctx.font = '14px "SF Mono", monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(commit.message.substring(0, 20), commit.x, commit.y - commit.radius - 8);
+      
+      return commit.radius < 40;
+    }
+    return false;
+  });
+
+  // Clean service nodes
+  for(let i = 0; i < particles.length; i++){
+    const p = particles[i];
+    
+    if(i === 0){
+      // Main application - clean design
+      const size = MASS_RADIUS + 8;
+      
+      // White background with subtle shadow
+      ctx.fillStyle = '#ffffff';
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.1)';
+      ctx.shadowBlur = 10;
+      ctx.shadowOffsetY = 2;
+      
+      ctx.beginPath();
+      ctx.roundRect(p.x - size, p.y - size, size * 2, size * 2, 8);
+      ctx.fill();
+      
+      // Clean border
+      ctx.shadowColor = 'transparent';
+      ctx.shadowBlur = 0;
+      ctx.shadowOffsetY = 0;
+      ctx.strokeStyle = '#e2e8f0';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      
+      // Simple React logo
+      ctx.fillStyle = '#61dafb';
+      ctx.font = '16px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText('⚛', p.x, p.y + 4);
+      
+      // Clean label
+      ctx.fillStyle = '#1e293b';
+      ctx.font = '12px "SF Mono", monospace';
+      ctx.fillText('Frontend', p.x, p.y - size - 8);
+      
+    } else {
+      // Backend services - minimal design
+      const services = [
+        { name: 'API', color: '#3b82f6', icon: '🔗' },
+        { name: 'DB', color: '#10b981', icon: '💾' },
+        { name: 'Cache', color: '#f59e0b', icon: '⚡' },
+        { name: 'Queue', color: '#8b5cf6', icon: '📋' }
+      ];
+      
+      const service = services[(i - 1) % services.length];
+      const size = MASS_RADIUS + 4;
+      
+      // Clean service container
+      ctx.fillStyle = '#ffffff';
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.08)';
+      ctx.shadowBlur = 8;
+      ctx.shadowOffsetY = 1;
+      
+      ctx.beginPath();
+      ctx.roundRect(p.x - size, p.y - size, size * 2, size * 2, 6);
+      ctx.fill();
+      
+      ctx.shadowColor = 'transparent';
+      ctx.shadowBlur = 0;
+      ctx.shadowOffsetY = 0;
+      ctx.strokeStyle = service.color;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      
+      // Service icon
+      ctx.font = '12px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText(service.icon, p.x, p.y + 3);
+      
+      // Service name
+      ctx.fillStyle = service.color;
+      ctx.font = '8px "SF Mono", monospace';
+      ctx.fillText(service.name, p.x, p.y - size - 8);
+      
+      // Simple health dot
+      const isHealthy = Math.sin(Date.now() * 0.003 + i) > -0.5;
+      ctx.fillStyle = isHealthy ? '#10b981' : '#ef4444';
+      ctx.beginPath();
+      ctx.arc(p.x + size - 4, p.y - size + 4, 3, 0, Math.PI*2);
+      ctx.fill();
+    }
+  }
+  
+  // Clean dashboard
+  const dashWidth = 380;
+  const dashHeight = 160;
+  
+  // White background with subtle shadow
+  ctx.fillStyle = '#ffffff';
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.1)';
+  ctx.shadowBlur = 20;
+  ctx.shadowOffsetY = 4;
+  ctx.fillRect(20, 20, dashWidth, dashHeight);
+  
+  ctx.shadowColor = 'transparent';
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetY = 0;
+  
+  // Subtle border
+  ctx.strokeStyle = '#e2e8f0';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(20, 20, dashWidth, dashHeight);
+  
+  // Clean header
+  const statusColor = buildStatus.status === 'SUCCESS' ? '#10b981' : 
+                     buildStatus.status === 'WARNING' ? '#f59e0b' : '#ef4444';
+  
+  ctx.fillStyle = '#1e293b';
+  ctx.font = '14px "SF Pro Display", system-ui';
+  ctx.textAlign = 'left';
+  ctx.fillText('Development Dashboard', 35, 45);
+  
+  // Status indicator
+  ctx.fillStyle = statusColor;
+  ctx.beginPath();
+  ctx.arc(340, 40, 6, 0, Math.PI*2);
+  ctx.fill();
+  
+  ctx.fillStyle = statusColor;
+  ctx.font = '12px "SF Mono", monospace';
+  ctx.textAlign = 'right';
+  ctx.fillText(buildStatus.status, 330, 45);
+  
+  // Clean metrics layout
+  ctx.font = '12px "SF Mono", monospace';
+  ctx.fillStyle = '#64748b';
+  ctx.textAlign = 'left';
+  
+  const metrics = [
+    `Tests: ${buildStatus.tests.passed} passed, ${buildStatus.tests.failed} failed`,
+    `Coverage: ${buildStatus.coverage.toFixed(1)}%`,
+    `Lines of Code: ${buildStatus.linesOfCode.toLocaleString()}`,
+    `Complexity: ${buildStatus.cyclomatic.toFixed(1)}`,
+    `Build Time: ${buildStatus.buildTime.toFixed(1)}s`,
+    `Active Issues: ${bugs.length}`
+  ];
+  
+  metrics.forEach((metric, index) => {
+    ctx.fillText(metric, 35, 70 + index * 18);
+  });
+  
+  // Clean progress bars
+  const barWidth = 100;
+  const barHeight = 6;
+  const barX = 280;
+  
+  // Coverage bar
+  ctx.fillStyle = '#f1f5f9';
+  ctx.fillRect(barX, 82, barWidth, barHeight);
+  
+  ctx.fillStyle = buildStatus.coverage > 80 ? '#10b981' : 
+                 buildStatus.coverage > 60 ? '#f59e0b' : '#ef4444';
+  ctx.fillRect(barX, 82, (buildStatus.coverage / 100) * barWidth, barHeight);
+  
+  // Test success rate
+  const successRate = buildStatus.tests.total > 0 ? (buildStatus.tests.passed / buildStatus.tests.total) * 100 : 0;
+  ctx.fillStyle = '#f1f5f9';
+  ctx.fillRect(barX, 64, barWidth, barHeight);
+  
+  ctx.fillStyle = successRate > 90 ? '#10b981' : 
+                 successRate > 70 ? '#f59e0b' : '#ef4444';
+  ctx.fillRect(barX, 64, (successRate / 100) * barWidth, barHeight);
+  
+  // Performance summary
+  ctx.fillStyle = '#94a3b8';
+  ctx.font = '14px "SF Mono", monospace';
+  ctx.textAlign = 'right';
+  
+  const perfMetrics = [
+    `Uptime ${buildStatus.uptime}%`,
+    `${buildStatus.deployments} deployments`,
+    `${codeLines.length} active streams`
+  ];
+  
+  perfMetrics.forEach((metric, index) => {
+    ctx.fillText(metric, w - 30, h - 50 + index * 15);
+  });
 
   ctx.restore();
 }
