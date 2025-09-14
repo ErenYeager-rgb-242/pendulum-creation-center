@@ -6,6 +6,20 @@
   <title>4-Point Pendulum</title>
 </head>
 <body>
+<style>
+  body, html {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    width: 100%;
+    height: 100%;
+  }
+  #c {
+    display: block;
+    margin: 0;
+    padding: 0;
+  }
+</style>
 <canvas id="c"></canvas>
 
 <script>
@@ -151,29 +165,320 @@ function maintainLengths(){
 }
 
 // drawing
+let dataPackets = [];
+let signalPulses = [];
+let voltageReadings = [];
+
 function draw(){
-  ctx.clearRect(0,0,w,h);
+  // Dark PCB background
+  ctx.fillStyle = 'rgba(10, 40, 10, 0.1)';
+  ctx.fillRect(0, 0, w, h);
+  
+  // PCB substrate pattern
+  ctx.fillStyle = 'rgba(0, 50, 0, 0.3)';
+  const patternSize = 15;
+  for(let x = 0; x < w; x += patternSize){
+    for(let y = 0; y < h; y += patternSize){
+      if((Math.floor(x/patternSize) + Math.floor(y/patternSize)) % 2 === 0){
+        ctx.fillRect(x, y, patternSize, patternSize);
+      }
+    }
+  }
+  
+  // Update system stats dynamically
+  if(!window.systemStats) {
+    window.systemStats = {
+      cpuUsage: 45.0,
+      memoryUsed: 2.1,
+      temperature: 42,
+      uptime: 0,
+      errors: 0
+    };
+  }
+
+  // CPU usage based on pendulum motion
+  let totalMotion = 0;
+  for(let i = 0; i < particles.length; i++){
+    const p = particles[i];
+    const motion = Math.hypot(p.x - p.px, p.y - p.py);
+    totalMotion += motion;
+  }
+  window.systemStats.cpuUsage = Math.min(95, 20 + totalMotion * 2);
+  window.systemStats.uptime += 0.016;
+  window.systemStats.memoryUsed = 1.8 + (dataPackets.length / 10) + Math.sin(Date.now() * 0.001) * 0.3;
+  window.systemStats.temperature = 25 + (window.systemStats.cpuUsage / 100) * 35 + Math.random() * 2;
+  
+  if(Math.random() < 0.002) window.systemStats.errors++;
+  
   ctx.save();
-  ctx.lineWidth = 2;
-  ctx.strokeStyle = '#000';
-  ctx.fillStyle = '#000';
-  // draw rods
-  ctx.beginPath();
+  
+  // Generate data packets flowing through connections
+  if(Math.random() < 0.1){
+    for(let i=0;i<particles.length-1;i++){
+      const a = particles[i];
+      const b = particles[i+1];
+      dataPackets.push({
+        startX: a.x, startY: a.y,
+        endX: b.x, endY: b.y,
+        progress: 0,
+        speed: 0.02 + Math.random() * 0.03,
+        data: ['0x' + Math.floor(Math.random()*256).toString(16).toUpperCase().padStart(2, '0'),
+               'TCP', 'UDP', 'HTTP', 'SPI', 'I2C'][Math.floor(Math.random() * 6)],
+        color: ['#00FF00', '#00AAFF', '#FF6600', '#FFFF00'][Math.floor(Math.random() * 4)]
+      });
+    }
+  }
+  
+  // Update and draw data packets
+  dataPackets = dataPackets.filter(packet => {
+    packet.progress += packet.speed;
+    
+    if(packet.progress <= 1){
+      const x = packet.startX + (packet.endX - packet.startX) * packet.progress;
+      const y = packet.startY + (packet.endY - packet.startY) * packet.progress;
+      
+      // Packet visualization
+      ctx.fillStyle = packet.color;
+      ctx.shadowColor = packet.color;
+      ctx.shadowBlur = 5;
+      
+      ctx.beginPath();
+      ctx.arc(x, y, 3, 0, Math.PI*2);
+      ctx.fill();
+      
+      // Data label
+      ctx.font = '8px "Courier New", monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(packet.data, x, y - 8);
+      
+      return true;
+    }
+    return false;
+  });
+
+  // Multi-layer PCB traces for pendulum arms
   for(let i=0;i<particles.length-1;i++){
     const a = particles[i];
     const b = particles[i+1];
-    ctx.moveTo(a.x, a.y);
-    ctx.lineTo(b.x, b.y);
+    
+    // Calculate perpendicular for trace separation
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const len = Math.hypot(dx, dy);
+    const perpX = -dy / len;
+    const perpY = dx / len;
+    
+    // Power traces (red - VCC)
+    ctx.strokeStyle = '#FF4444';
+    ctx.lineWidth = 4;
+    ctx.shadowColor = '#FF4444';
+    ctx.shadowBlur = 3;
+    
+    ctx.beginPath();
+    ctx.moveTo(a.x + perpX * 8, a.y + perpY * 8);
+    ctx.lineTo(b.x + perpX * 8, b.y + perpY * 8);
+    ctx.stroke();
+    
+    // Ground traces (black/dark)
+    ctx.strokeStyle = '#666666';
+    ctx.lineWidth = 4;
+    ctx.shadowColor = '#666666';
+    ctx.shadowBlur = 2;
+    
+    ctx.beginPath();
+    ctx.moveTo(a.x - perpX * 8, a.y - perpY * 8);
+    ctx.lineTo(b.x - perpX * 8, b.y - perpY * 8);
+    ctx.stroke();
+    
+    // Data/signal traces (green)
+    ctx.strokeStyle = '#00FF44';
+    ctx.lineWidth = 3;
+    ctx.shadowColor = '#00FF44';
+    ctx.shadowBlur = 4;
+    
+    ctx.beginPath();
+    ctx.moveTo(a.x + perpX * 3, a.y + perpY * 3);
+    ctx.lineTo(b.x + perpX * 3, b.y + perpY * 3);
+    ctx.stroke();
+    
+    // Clock traces (yellow)
+    ctx.strokeStyle = '#FFFF44';
+    ctx.lineWidth = 2;
+    ctx.shadowColor = '#FFFF44';
+    ctx.shadowBlur = 3;
+    
+    ctx.beginPath();
+    ctx.moveTo(a.x - perpX * 3, a.y - perpY * 3);
+    ctx.lineTo(b.x - perpX * 3, b.y - perpY * 3);
+    ctx.stroke();
+    
+    // Via connections (small copper holes)
+    const numVias = 5;
+    for(let j = 1; j < numVias; j++){
+      const t = j / numVias;
+      const viaX = a.x + (b.x - a.x) * t;
+      const viaY = a.y + (b.y - a.y) * t;
+      
+      // Via hole
+      ctx.fillStyle = '#000000';
+      ctx.beginPath();
+      ctx.arc(viaX, viaY, 2, 0, Math.PI*2);
+      ctx.fill();
+      
+      // Via copper ring
+      ctx.strokeStyle = '#DAA520';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(viaX, viaY, 3, 0, Math.PI*2);
+      ctx.stroke();
+    }
   }
-  ctx.stroke();
 
-  // draw masses
+  // Generate signal pulses
+  if(Math.random() < 0.05){
+    signalPulses.push({
+      x: particles[0].x,
+      y: particles[0].y,
+      radius: 5,
+      maxRadius: 50,
+      color: '#00AAFF',
+      life: 1
+    });
+  }
+  
+  // Draw signal pulses (like oscilloscope readings)
+  signalPulses = signalPulses.filter(pulse => {
+    pulse.radius += 2;
+    pulse.life -= 0.02;
+    
+    if(pulse.life > 0 && pulse.radius < pulse.maxRadius){
+      ctx.strokeStyle = `rgba(0, 170, 255, ${pulse.life})`;
+      ctx.lineWidth = 2;
+      ctx.setLineDash([5, 5]);
+      
+      ctx.beginPath();
+      ctx.arc(pulse.x, pulse.y, pulse.radius, 0, Math.PI*2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      
+      return true;
+    }
+    return false;
+  });
+
+  // Computer Engineering components as pendulum masses
   for(let i=0;i<particles.length;i++){
     const p = particles[i];
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, MASS_RADIUS, 0, Math.PI*2);
-    ctx.fill();
+    
+    if(i === 0){
+      // Main processor/controller
+      const chipSize = MASS_RADIUS + 6;
+      
+      // Processor package
+      ctx.fillStyle = '#2C2C2C';
+      ctx.strokeStyle = '#DAA520';
+      ctx.lineWidth = 2;
+      ctx.fillRect(p.x - chipSize, p.y - chipSize, chipSize * 2, chipSize * 2);
+      ctx.strokeRect(p.x - chipSize, p.y - chipSize, chipSize * 2, chipSize * 2);
+      
+      // Pin grid array
+      for(let px = -2; px <= 2; px++){
+        for(let py = -2; py <= 2; py++){
+          ctx.fillStyle = '#DAA520';
+          ctx.fillRect(p.x + px * 3 - 0.5, p.y + py * 3 - 0.5, 1, 1);
+        }
+      }
+      
+      // Processor label
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = '8px "Courier New", monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('ARM', p.x, p.y - 2);
+      ctx.fillText('CORTEX', p.x, p.y + 6);
+      
+    } else {
+      // Memory/peripheral chips
+      const componentTypes = ['SRAM', 'FLASH', 'ADC', 'GPIO'];
+      const colors = ['#FF4444', '#44FF44', '#4444FF', '#FFFF44'];
+      const componentType = componentTypes[i % componentTypes.length];
+      const componentColor = colors[i % colors.length];
+      
+      // Component package (SOIC/QFN style)
+      ctx.fillStyle = '#1A1A1A';
+      ctx.strokeStyle = componentColor;
+      ctx.lineWidth = 2;
+      ctx.shadowColor = componentColor;
+      ctx.shadowBlur = 5;
+      
+      ctx.fillRect(p.x - MASS_RADIUS - 2, p.y - MASS_RADIUS - 2, 
+                   (MASS_RADIUS + 2) * 2, (MASS_RADIUS + 2) * 2);
+      ctx.strokeRect(p.x - MASS_RADIUS - 2, p.y - MASS_RADIUS - 2, 
+                     (MASS_RADIUS + 2) * 2, (MASS_RADIUS + 2) * 2);
+      
+      // Component pins
+      for(let pin = 0; pin < 8; pin++){
+        const side = Math.floor(pin / 2);
+        const pinPos = (pin % 2) * 2 - 1;
+        let pinX, pinY;
+        
+        switch(side){
+          case 0: pinX = p.x + pinPos * 5; pinY = p.y - MASS_RADIUS - 5; break;
+          case 1: pinX = p.x + MASS_RADIUS + 5; pinY = p.y + pinPos * 5; break;
+          case 2: pinX = p.x + pinPos * 5; pinY = p.y + MASS_RADIUS + 5; break;
+          case 3: pinX = p.x - MASS_RADIUS - 5; pinY = p.y + pinPos * 5; break;
+        }
+        
+        ctx.fillStyle = '#C0C0C0';
+        ctx.fillRect(pinX - 1, pinY - 0.5, 2, 1);
+      }
+      
+      // Component label
+      ctx.fillStyle = componentColor;
+      ctx.font = '7px "Courier New", monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(componentType, p.x, p.y + 2);
+      
+      // Status LED
+      const isActive = Math.sin(Date.now() * 0.01 + i) > 0;
+      if(isActive){
+        ctx.fillStyle = '#00FF00';
+        ctx.shadowColor = '#00FF00';
+        ctx.shadowBlur = 8;
+        ctx.beginPath();
+        ctx.arc(p.x + MASS_RADIUS - 2, p.y - MASS_RADIUS + 2, 2, 0, Math.PI*2);
+        ctx.fill();
+      }
+    }
   }
+
+    // Responsive System Monitor Panel
+  const scale = Math.min(w / 1200, h / 800);
+  const panelW = 340 * scale;
+  const panelH = 140 * scale;
+  const panelX = w * 0.02;
+  const panelY = h * 0.02;
+
+  ctx.fillStyle = 'rgba(0,0,0,0.8)';
+  ctx.fillRect(panelX, panelY, panelW, panelH);
+  ctx.strokeStyle = window.systemStats.cpuUsage > 70 ? '#FF4444' : '#00FF00';
+  ctx.lineWidth = 1 * scale;
+  ctx.strokeRect(panelX, panelY, panelW, panelH);
+
+  ctx.fillStyle = window.systemStats.cpuUsage > 80 ? '#FF4444' : '#00FF00';
+  ctx.font = `${16 * scale}px "Courier New", monospace`;
+  ctx.textAlign = 'left';
+
+  let lineH = 20 * scale;
+  let textX = panelX + 5 * scale;
+  let y = panelY + lineH;
+
+  ctx.fillText('╔══════ SYSTEM MONITOR ══════╗', textX, y); y += lineH;
+  ctx.fillText(`║ CPU: ${window.systemStats.cpuUsage.toFixed(1)}%`, textX, y); y += lineH;
+  ctx.fillText(`║ Memory: ${window.systemStats.memoryUsed.toFixed(1)}GB/4.0GB`, textX, y); y += lineH;
+  ctx.fillText(`║ Temperature: ${window.systemStats.temperature.toFixed(1)}°C`, textX, y); y += lineH;
+  ctx.fillText(`║ Packets: ${dataPackets.length} Errors: ${window.systemStats.errors}`, textX, y); y += lineH;
+  ctx.fillText(`║ Uptime: ${Math.floor(window.systemStats.uptime)}s`, textX, y); y += lineH;
+  ctx.fillText('╚═════════════════════════════╝', textX, y);
 
   ctx.restore();
 }
