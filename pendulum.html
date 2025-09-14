@@ -6,6 +6,20 @@
   <title>4-Point Pendulum</title>
 </head>
 <body>
+<style>
+  body, html {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    width: 100%;
+    height: 100%;
+  }
+  #c {
+    display: block;
+    margin: 0;
+    padding: 0;
+  }
+</style>
 <canvas id="c"></canvas>
 
 <script>
@@ -152,31 +166,84 @@ function maintainLengths(){
 
 // drawing
 function draw(){
-  ctx.clearRect(0,0,w,h);
-  ctx.save();
-  ctx.lineWidth = 2;
-  ctx.strokeStyle = '#000';
-  ctx.fillStyle = '#000';
-  // draw rods
+  // Dark background with grid
+  ctx.fillStyle = '#0a0a0a';
+  ctx.fillRect(0, 0, w, h);
+
+  // Draw retro grid (soft cyan glow)
+  ctx.strokeStyle = 'rgba(0, 255, 200, 0.15)';
+  ctx.lineWidth = 1;
+  const gridSize = 50;
+
   ctx.beginPath();
-  for(let i=0;i<particles.length-1;i++){
-    const a = particles[i];
-    const b = particles[i+1];
-    ctx.moveTo(a.x, a.y);
-    ctx.lineTo(b.x, b.y);
+  for(let x = 0; x <= w; x += gridSize){
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, h);
+  }
+  for(let y = 0; y <= h; y += gridSize){
+    ctx.moveTo(0, y);
+    ctx.lineTo(w, y);
   }
   ctx.stroke();
 
-  // draw masses
-  for(let i=0;i<particles.length;i++){
-    const p = particles[i];
+  ctx.save();
+
+  const time = Date.now() * 0.005;
+
+  // Neon pendulum rods
+  for(let i=0;i<particles.length-1;i++){
+    const a = particles[i];
+    const b = particles[i+1];
+
+    // Outer glow (mint/blue-green)
+    ctx.strokeStyle = '#00FFBF';  // mint green
+    ctx.lineWidth = 8;
+    ctx.shadowColor = '#00FFBF';
+    ctx.shadowBlur = 20;
+
     ctx.beginPath();
-    ctx.arc(p.x, p.y, MASS_RADIUS, 0, Math.PI*2);
-    ctx.fill();
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(b.x, b.y);
+    ctx.stroke();
+
+    // Inner bright line (cyan/light blue)
+    ctx.strokeStyle = '#00FFFF';
+    ctx.lineWidth = 2;
+    ctx.shadowColor = '#00FFFF';
+    ctx.shadowBlur = 8;
+
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(b.x, b.y);
+    ctx.stroke();
   }
 
+  // Neon masses with pulsing
+  for(let i=0;i<particles.length;i++){
+    const p = particles[i];
+    const pulse = Math.sin(time * 2 + i) * 0.3 + 1;
+
+    // Outer glow (neon blue-green)
+    ctx.fillStyle = '#00FFBF';
+    ctx.shadowColor = '#00FFBF';
+    ctx.shadowBlur = 25;
+
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, MASS_RADIUS * pulse, 0, Math.PI*2);
+    ctx.fill();
+
+    // Inner bright core (white + cyan glow)
+    ctx.fillStyle = '#BFFFFF';
+    ctx.shadowColor = '#00FFFF';
+    ctx.shadowBlur = 15;
+
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, MASS_RADIUS * 0.6 * pulse, 0, Math.PI*2);
+    ctx.fill();
+  }
   ctx.restore();
 }
+
 
 // main loop with fixed timestep accumulator
 let acc = 0;
