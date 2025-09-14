@@ -165,82 +165,93 @@ function maintainLengths(){
 }
 
 // drawing
+let electricTrails = [];
 function draw(){
-  // Dark background with grid
-  ctx.fillStyle = '#0a0a0a';
+  // Dark electric background
+  ctx.fillStyle = 'rgba(5, 5, 15, 0.1)';
   ctx.fillRect(0, 0, w, h);
-
-  // Draw retro grid (soft cyan glow)
-  ctx.strokeStyle = 'rgba(0, 255, 200, 0.15)';
-  ctx.lineWidth = 1;
-  const gridSize = 50;
-
-  ctx.beginPath();
-  for(let x = 0; x <= w; x += gridSize){
-    ctx.moveTo(x, 0);
-    ctx.lineTo(x, h);
-  }
-  for(let y = 0; y <= h; y += gridSize){
-    ctx.moveTo(0, y);
-    ctx.lineTo(w, y);
-  }
-  ctx.stroke();
-
+  
   ctx.save();
-
-  const time = Date.now() * 0.005;
-
-  // Neon pendulum rods
+  
+  // Electric rods with lightning bolts
   for(let i=0;i<particles.length-1;i++){
     const a = particles[i];
     const b = particles[i+1];
-
-    // Outer glow (mint/blue-green)
-    ctx.strokeStyle = '#00FFBF';  // mint green
-    ctx.lineWidth = 8;
-    ctx.shadowColor = '#00FFBF';
-    ctx.shadowBlur = 20;
-
-    ctx.beginPath();
-    ctx.moveTo(a.x, a.y);
-    ctx.lineTo(b.x, b.y);
-    ctx.stroke();
-
-    // Inner bright line (cyan/light blue)
+    
+    // Main electric beam
     ctx.strokeStyle = '#00FFFF';
-    ctx.lineWidth = 2;
-    ctx.shadowColor = '#00FFFF';
-    ctx.shadowBlur = 8;
-
-    ctx.beginPath();
-    ctx.moveTo(a.x, a.y);
-    ctx.lineTo(b.x, b.y);
-    ctx.stroke();
-  }
-
-  // Neon masses with pulsing
-  for(let i=0;i<particles.length;i++){
-    const p = particles[i];
-    const pulse = Math.sin(time * 2 + i) * 0.3 + 1;
-
-    // Outer glow (neon blue-green)
-    ctx.fillStyle = '#00FFBF';
-    ctx.shadowColor = '#00FFBF';
-    ctx.shadowBlur = 25;
-
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, MASS_RADIUS * pulse, 0, Math.PI*2);
-    ctx.fill();
-
-    // Inner bright core (white + cyan glow)
-    ctx.fillStyle = '#BFFFFF';
+    ctx.lineWidth = 3;
     ctx.shadowColor = '#00FFFF';
     ctx.shadowBlur = 15;
-
+    
+    // Jagged lightning path
     ctx.beginPath();
-    ctx.arc(p.x, p.y, MASS_RADIUS * 0.6 * pulse, 0, Math.PI*2);
+    ctx.moveTo(a.x, a.y);
+    
+    const steps = 8;
+    for(let j = 1; j < steps; j++){
+      const t = j / steps;
+      const x = a.x + (b.x - a.x) * t + (Math.random() - 0.5) * 20;
+      const y = a.y + (b.y - a.y) * t + (Math.random() - 0.5) * 20;
+      ctx.lineTo(x, y);
+    }
+    ctx.lineTo(b.x, b.y);
+    ctx.stroke();
+    
+    // Random electric arcs
+    if(Math.random() < 0.1){
+      electricTrails.push({
+        x1: a.x + (Math.random() - 0.5) * 40,
+        y1: a.y + (Math.random() - 0.5) * 40,
+        x2: b.x + (Math.random() - 0.5) * 40,
+        y2: b.y + (Math.random() - 0.5) * 40,
+        life: 1
+      });
+    }
+  }
+  
+  // Draw and fade electric trails
+  electricTrails = electricTrails.filter(trail => {
+    trail.life -= 0.1;
+    if(trail.life > 0){
+      ctx.strokeStyle = `rgba(0, 255, 255, ${trail.life})`;
+      ctx.lineWidth = 1;
+      ctx.shadowBlur = 10;
+      
+      ctx.beginPath();
+      ctx.moveTo(trail.x1, trail.y1);
+      ctx.lineTo(trail.x2, trail.y2);
+      ctx.stroke();
+      return true;
+    }
+    return false;
+  });
+
+  // Electric orbs
+  for(let i=0;i<particles.length;i++){
+    const p = particles[i];
+    
+    // Electric glow
+    const gradient = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, MASS_RADIUS * 3);
+    gradient.addColorStop(0, '#FFFFFF');
+    gradient.addColorStop(0.3, '#00FFFF');
+    gradient.addColorStop(1, 'rgba(0, 255, 255, 0)');
+    
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, MASS_RADIUS * 3, 0, Math.PI*2);
+    ctx.fill();
+    
+    // Core orb
+    ctx.fillStyle = '#FFFFFF';
+    ctx.shadowColor = '#00FFFF';
+    ctx.shadowBlur = 20;
+    
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, MASS_RADIUS * 0.7, 0, Math.PI*2);
     ctx.fill();
   }
+
   ctx.restore();
 }
 
