@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Abstract Pendulum Art - Flame Edition</title>
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      /* Flame Gradient Background */
+      background: linear-gradient(to top, #800000, #ff4500, #ff8c00);
+      background-size: 100% 200%;
+      animation: flicker 3s ease infinite;
+    }
+
+    /* Subtle flickering animation for the "flame" feel */
+    @keyframes flicker {
+      0% { background-position: 0% 0%; }
+      50% { background-position: 0% 100%; }
+      100% { background-position: 0% 0%; }
+    }
+
+    canvas {
+      display: block;
+      /* Makes the canvas transparent so the CSS background shows through */
+      background: transparent; 
+    }
+  </style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+let w = canvas.width = innerWidth;
+let h = canvas.height = innerHeight;
+
+// Pendulum parameters
+const SEGMENTS = 4;
+const SEG_LEN = 180;
+let ORIGIN = { x: w/2, y: 80 };
+const GRAVITY = 1500;
+const TIMESTEP = 1/60;
+const ITER = 6;
+const MASS_RADIUS = 10;
+const DAMPING = 0.999;
+
+const particles = [];
+function resetPendulum(){
+  particles.length = 0;
+  for(let i=0; i<SEGMENTS; i++){
+    const x = ORIGIN.x;
+    const y = ORIGIN.y + i*SEG_LEN;
+    particles.push({ x, y, px: x, py: y, pinned: i===0, trail: [] });
+  }
+}
+resetPendulum();
+
+// Interaction
+let dragging = false;
+let dragIndex = -1;
+function getMouse(e){
+  if(e.touches){ const t = e.touches[0]; return { x: t.clientX, y: t.clientY }; }
+  return { x: e.clientX, y: e.clientY };
+}
+
+canvas.addEventListener('pointerdown', (e)=>{
+  const m = getMouse(e);
+  let best=-1, bestDist=1e9;
+  for(let i=0; i<particles.length; i++){
+    const p=particles[i];
+    const dx=p.x-m.x, dy=p.y-m.y;
+    const d2=dx*dx+dy*dy;
+    if(d2 < bestDist){bestDist=d2; best=i;}
+  }
+  if(bestDist <= (MASS_RADIUS+10)*(MASS_RADIUS+10)){
+    dragging=true; dragIndex=best;
+    canvas.setPointerCapture(e.pointerId);
+  }
+});
+
+canvas.addEventListener('pointermove',(e)=>{
+  if(!dragging) return;
+  const m=getMouse(e);
+  const p=particles[dragIndex];
+  p.x=m.x; p.y=m.y; p.px=m.x; p.py=m.y;
+});
+
+canvas.addEventListener('pointerup',(e)=>{
+  dragging=false; dragIndex=-1;
+  try{canvas.releasePointerCapture(e.pointerId)} catch(err){}
+});
+
+// Physics logic
+function integrate(dt){
+  const gdt2=GRAVITY*dt*dt;
+  for(const p of particles){
+    if(p.pinned) continue;
+    const nx=p.x+(p.x-p.px)*DAMPING;
+    const ny=p.y+(p.y-p.py)*DAMPING+gdt2;
+    p.px=p.x; p.py=p.y;
+    p.x=nx; p.y=ny;
+  }
+}
+
+function constrain(){
+  const pivot=particles[0];
+  pivot.x=ORIGIN.x; pivot.y=ORIGIN.y;
+  pivot.px=ORIGIN.x; pivot.py=ORIGIN.y;
+  for(let k=0; k<ITER; k++){
+    for(let i=0; i<particles.length-1; i++){
+      const a=particles[i], b=particles[i+1];
+      const dx=b.x-a.x, dy=b.y-a.y;
+      const dist=Math.hypot(dx,dy)||0.0001;
+      const diff=(dist-SEG_LEN)/dist;
+      const invMassA=a.pinned?0:1, invMassB=b.pinned?0:1;
+      const invSum=invMassA+invMassB;
+      const moveA=invMassA/invSum, moveB=invMassB/invSum;
+      const mx=dx*diff, my=dy*diff;
+      if(!a.pinned){a.x+=mx*moveA; a.y+=my*moveA;}
+      if(!b.pinned){b.x-=mx*moveB; b.y-=my*moveB;}
+    }
+  }
+}
+
+// Flame-themed colors (White/Yellow/Gold)
+const COLORS=["#FFFFFF", "#FFFFE0", "#FFD700", "#FFA500"];
+
+function draw(){
+  // Clear the canvas with transparency to show the CSS background
+  ctx.clearRect(0,0,w,h);
+  
+  // Optional: Add a very faint dark overlay for trail persistence
+  ctx.fillStyle = "rgba(0, 0, 0, 0.1)";
+  // (Removed fillRect to keep flames clear, but you can add it back for longer trails)
+
+  ctx.save();
+  ctx.lineWidth=3;
+
+  for(let i=0; i<particles.length-1; i++){
+    const a=particles[i], b=particles[i+1];
+    ctx.beginPath();
+    ctx.moveTo(a.x,a.y);
+    ctx.lineTo(b.x,b.y);
+    ctx.strokeStyle="rgba(255, 255, 255, 0.4)"; // White ghostly rods
+    ctx.stroke();
+  }
+
+  for(let i=0; i<particles.length; i++){
+    const p=particles[i];
+    p.trail.push({x:p.x, y:p.y});
+    if(p.trail.length>100) p.trail.shift();
+
+    ctx.beginPath();
+    for(let j=0; j<p.trail.length; j++){
+      const t=p.trail[j];
+      if(j===0) ctx.moveTo(t.x,t.y); else ctx.lineTo(t.x,t.y);
+    }
+    ctx.strokeStyle=COLORS[i%COLORS.length];
+    ctx.globalAlpha=0.6;
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(p.x,p.y,MASS_RADIUS,0,Math.PI*2);
+    ctx.fillStyle=COLORS[i%COLORS.length];
+    ctx.globalAlpha=1;
+    ctx.fill();
+    // Glow effect
+    ctx.shadowBlur = 15;
+    ctx.shadowColor = COLORS[i%COLORS.length];
+  }
+  ctx.restore();
+}
+
+let acc=0; let last=performance.now();
+function loop(now){
+  const dtMs=now-last; last=now;
+  acc+=dtMs/1000; if(acc>0.25) acc=0.25;
+  while(acc>=TIMESTEP){
+    integrate(TIMESTEP);
+    constrain();
+    acc-=TIMESTEP;
+  }
+  draw();
+  requestAnimationFrame(loop);
+}
+
+window.addEventListener('resize', ()=>{
+  w = canvas.width = innerWidth;
+  h = canvas.height = innerHeight;
+  ORIGIN.x = w/2;
+});
+
+function nudge(){
+  for(let i=0; i<particles.length; i++){
+    const p=particles[i]; p.px=p.x-(i*15); p.py=p.y;
+  }
+}
+
+nudge();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
